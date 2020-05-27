@@ -8,25 +8,31 @@
 
 #include <windows.h>
 
+#define internal_static static
+#define persist_static static
+#define global_static static
+
+global_static bool running; // TODO(Diogo Junqueira Geraldo): This is a global for now
+
 LRESULT CALLBACK MainWindowCallback(HWND window,UINT message,WPARAM wParam, LPARAM lParam)
 {
     LRESULT handleMessageCode = 0;
 
     switch (message)
     {
-        case WM_SIZE:
+        case WM_CLOSE:
         {
-            OutputDebugString(L"WM_SIZE\n");
-        } break;
+            running = false;
+        } break; // TODO(Diogo Junqueira Geraldo): Handle this with a message to the user
 
         case WM_DESTROY:
         {
-            OutputDebugString(L"WM_DESTROY\n");
-        } break;
+            running = false;
+        } break; // TODO(Diogo Junqueira Geraldo): Handle this as an error - try recreate window
 
-        case WM_CLOSE:
+        case WM_SIZE:
         {
-            OutputDebugString(L"WM_CLOSE\n");
+            OutputDebugString(L"WM_SIZE\n");
         } break;
 
         case WM_ACTIVATE:
@@ -83,10 +89,10 @@ INT CALLBACK WinMain(HINSTANCE instance,
                             instance,
                             0);
 
-        if (windowHandle)
-        {     
+        if (running = windowHandle)
+        {
             MSG message;
-            while(true)
+            while(running)
             {
                 if (GetMessage(&message, 0, 0, 0) > 0)
                 {
