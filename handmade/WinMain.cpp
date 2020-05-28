@@ -1,7 +1,7 @@
 /*  ================================================================
     $File: WinMain.cpp
     $Date: 05/26/2020
-    $Revision: 05/26/2020
+    $Revision: 05/28/2020
     $Creator: Diogo Junqueira Geraldo
     $Notice: (C) Copyright 2020 by d.junqueira. All Rights Reserved.
     ================================================================  */
@@ -24,17 +24,17 @@ global_static int bitMapWidth;
 global_static int bitMapHeight;
 global_static int bytesPerPixel = 4;
 
-internal void Win32CalculateColors(uint8_t* pixel, int x, int y, int rgb)
+internal void Win32CalculateColors(uint8_t* pixel, int x, int y, int rgb, int xoffset, int yoffset)
 {
     switch (rgb)
     {
         case RED:
         {
-            *pixel = (uint8_t)(x + 1 / 255);
+            *pixel = 100;
         } break;
         case GREEN:
         {
-            *pixel = (uint8_t)(x + 1 / 255);
+            *pixel = 100;
         } break;
         case BLUE:
         {
@@ -43,7 +43,7 @@ internal void Win32CalculateColors(uint8_t* pixel, int x, int y, int rgb)
     }
 }
 
-internal void Win32Render(int xOffset, int yOffSet)
+internal void Win32Render(int xoffset, int yoffset)
 {
     int pitch = (bitMapWidth * bytesPerPixel);
     uint8_t* row = ((uint8_t*)bitMapMemory);
@@ -54,7 +54,7 @@ internal void Win32Render(int xOffset, int yOffSet)
         {
             for (int rgb = 0; rgb < 4; rgb++)
             {
-                Win32CalculateColors(pixel, x, y, rgb);
+                Win32CalculateColors(pixel, x, y, rgb, xoffset, yoffset);
                 pixel++;
             }
         }
@@ -80,15 +80,13 @@ internal void Win32ResizeDIBSection(int width, int height)
 
     
     int bitMapMemorySizeBytes = (width * height) * bytesPerPixel;
-    bitMapMemory = VirtualAlloc(0, bitMapMemorySizeBytes, MEM_COMMIT, PAGE_READWRITE);
-
-    Win32Render(0, 0);
+    bitMapMemory = VirtualAlloc(0, bitMapMemorySizeBytes, MEM_COMMIT, PAGE_READWRITE);;
 }
 
-internal void Win32UpdateWindow(HDC deviceContext,RECT *windowRect, int x, int y, int width, int height)
+internal void Win32UpdateWindow(HDC deviceContext,RECT *clientRect, int x, int y, int width, int height)
 {
-    int windowWidth = windowRect->right - windowRect->left;
-    int windowHeight = windowRect->bottom - windowRect->top;
+    int windowWidth = clientRect->right - clientRect->left;
+    int windowHeight = clientRect->bottom - clientRect->top;
 
 
     StretchDIBits(deviceContext,
@@ -169,7 +167,7 @@ INT CALLBACK WinMain(HINSTANCE instance,
 
     if (RegisterClass(&windowClass)) {
 
-        HWND windowHandle = 
+        HWND window = 
              CreateWindowEx(0,
                             windowClass.lpszClassName,
                             L"Handmade Hero",
@@ -183,16 +181,35 @@ INT CALLBACK WinMain(HINSTANCE instance,
                             instance,
                             0);
 
-        if (running = windowHandle)
+        if (running = window)
         {
+            int xoffset = 0;
+            int yoffset = 0;
             MSG message;
             while(running)
             {
-                if (GetMessage(&message, 0, 0, 0) > 0)
-                {
+                while (PeekMessage(&message, 0, 0, 0, PM_REMOVE))
+                {   
+                    if (message.message == WM_QUIT) {
+                        running = false;
+                    }
+
                     TranslateMessage(&message);
                     DispatchMessage(&message);
-                } else break;
+                }
+                Win32Render(xoffset, yoffset);
+
+                HDC deviceContext = GetDC(window);
+                RECT clientRect;
+                GetClientRect(window, &clientRect);
+                int windowWidth = clientRect.right - clientRect.left;
+                int windowHeight = clientRect.bottom - clientRect.top;
+
+                Win32UpdateWindow(deviceContext, &clientRect, 0, 0, windowWidth, windowHeight);
+
+                ReleaseDC(window, deviceContext);
+                xoffset++;
+                yoffset++;
             }
         } // TODO(Diogo Junqueira Geraldo): If windows can´t create the window, handler and/or log the error.
 
