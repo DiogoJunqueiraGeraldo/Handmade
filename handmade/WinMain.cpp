@@ -15,23 +15,14 @@
 global_static bool running; // TODO(Diogo Junqueira Geraldo): This is a global for now
 global_static BITMAPINFO bitMapInfo;
 global_static void* bitMapMemory;   
-global_static HBITMAP bitMapHandle;
-global_static HDC bitMapCompatibleDeviceContext;
+
 
 internal void Win32ResizeDIBSection(int width, int height)
 {
-    // TODO(Diogo Junqueira Geraldo): Bulletproof this. Free first only if free our DIBSection after fails 
-    // >>>
-    if (bitMapHandle) {
-        DeleteObject(bitMapHandle);
+    if (bitMapMemory)
+    {
+        VirtualFree(bitMapMemory, 0, MEM_RELEASE);
     }
-    
-    if (!bitMapCompatibleDeviceContext) {
-
-        // TODO(Diogo Junqueira Geraldo): Should we recreate these under certain circumstances?
-        bitMapCompatibleDeviceContext = CreateCompatibleDC(0); 
-    }
-    // <<<
 
     bitMapInfo.bmiHeader.biSize = sizeof(bitMapInfo.bmiHeader);
     bitMapInfo.bmiHeader.biWidth = width;
@@ -40,12 +31,9 @@ internal void Win32ResizeDIBSection(int width, int height)
     bitMapInfo.bmiHeader.biBitCount = 32;
     bitMapInfo.bmiHeader.biCompression = BI_RGB;
 
-    bitMapHandle = CreateDIBSection(bitMapCompatibleDeviceContext,
-                                    &bitMapInfo,
-                                    DIB_RGB_COLORS,
-                                    &bitMapMemory,
-                                    0, 0);
-
+    int bytesPerPixel = 4;
+    int bitMapMemorySizeBytes = (width * height) * bytesPerPixel;
+    bitMapMemory = VirtualAlloc(0, bitMapMemorySizeBytes, MEM_COMMIT, PAGE_READWRITE);
 }
 
 internal void Win32UpdateWindow(HDC deviceContext, int x, int y, int width, int height)
