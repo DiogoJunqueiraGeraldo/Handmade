@@ -7,15 +7,60 @@
     ================================================================  */
 
 #include <windows.h>
+#include <stdint.h>
 
 #define internal static
 #define persist_static static
 #define global_static static
 
+#define RED 2
+#define GREEN 1
+#define BLUE 0
+
 global_static bool running; // TODO(Diogo Junqueira Geraldo): This is a global for now
 global_static BITMAPINFO bitMapInfo;
 global_static void* bitMapMemory;   
+global_static int bitMapWidth;
+global_static int bitMapHeight;
+global_static int bytesPerPixel = 4;
 
+internal void Win32CalculateColors(uint8_t* pixel, int x, int y, int rgb)
+{
+    switch (rgb)
+    {
+        case RED:
+        {
+            *pixel = (uint8_t)(x + 1 / 255);
+        } break;
+        case GREEN:
+        {
+            *pixel = (uint8_t)(x + 1 / 255);
+        } break;
+        case BLUE:
+        {
+            *pixel = 0;
+        } break;
+    }
+}
+
+internal void Win32Render(int xOffset, int yOffSet)
+{
+    int pitch = (bitMapWidth * bytesPerPixel);
+    uint8_t* row = ((uint8_t*)bitMapMemory);
+    for (int y = 0; y < bitMapHeight; y++)
+    {
+        uint8_t* pixel = ((uint8_t*)row);
+        for (int x = 0; x < bitMapWidth; x++) // NOTE(Diogo Junqueira Geraldo): 0xBBGGRRxx
+        {
+            for (int rgb = 0; rgb < 4; rgb++)
+            {
+                Win32CalculateColors(pixel, x, y, rgb);
+                pixel++;
+            }
+        }
+        row += pitch;
+    }
+}
 
 internal void Win32ResizeDIBSection(int width, int height)
 {
@@ -24,23 +69,31 @@ internal void Win32ResizeDIBSection(int width, int height)
         VirtualFree(bitMapMemory, 0, MEM_RELEASE);
     }
 
+    bitMapWidth = width;
+    bitMapHeight = height;
     bitMapInfo.bmiHeader.biSize = sizeof(bitMapInfo.bmiHeader);
-    bitMapInfo.bmiHeader.biWidth = width;
-    bitMapInfo.bmiHeader.biHeight = height;
+    bitMapInfo.bmiHeader.biWidth = bitMapWidth;
+    bitMapInfo.bmiHeader.biHeight = -bitMapHeight; // NOTE(Diogo Junqueira Geraldo): negative value makes the render start from top-left
     bitMapInfo.bmiHeader.biPlanes = 1;
     bitMapInfo.bmiHeader.biBitCount = 32;
     bitMapInfo.bmiHeader.biCompression = BI_RGB;
 
-    int bytesPerPixel = 4;
+    
     int bitMapMemorySizeBytes = (width * height) * bytesPerPixel;
     bitMapMemory = VirtualAlloc(0, bitMapMemorySizeBytes, MEM_COMMIT, PAGE_READWRITE);
+
+    Win32Render(0, 0);
 }
 
-internal void Win32UpdateWindow(HDC deviceContext, int x, int y, int width, int height)
+internal void Win32UpdateWindow(HDC deviceContext,RECT *windowRect, int x, int y, int width, int height)
 {
+    int windowWidth = windowRect->right - windowRect->left;
+    int windowHeight = windowRect->bottom - windowRect->top;
+
+
     StretchDIBits(deviceContext,
-                  x,y,width,height, // target
-                  x,y,width,height, // source
+                  0,0, bitMapWidth, bitMapHeight,
+                  0,0, windowWidth, windowHeight,
                   bitMapMemory,
                   &bitMapInfo,
                   DIB_RGB_COLORS,SRCCOPY);
@@ -76,7 +129,10 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,UINT message,WPARAM wParam,
                 int y = paint.rcPaint.top;
                 int width = paint.rcPaint.right - x;
                 int height = paint.rcPaint.bottom - y;
-                Win32UpdateWindow(deviceContext, x, y, width, height);
+
+                RECT clientRect;
+                GetClientRect(window, &clientRect);
+                Win32UpdateWindow(deviceContext, &clientRect, x, y, width, height);
             } EndPaint(window, &paint);
         } break;
 
